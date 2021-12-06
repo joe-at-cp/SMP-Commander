@@ -1,11 +1,12 @@
 #!/bin/bash
 
 #SMP Parameters
-SMP_REGISTER_URL="https://smbmgmtservice.checkpoint.com"
-SMP_REGISTER_DOMAIN="mysmpdomain"
-SMP_REGISTER_USERNAME="myusername"
-SMP_REGISTER_PASSWORD="mypassword"
+SMP_REGISTER_URL="https://smp-beta-aws.checkpoint.com"
+SMP_REGISTER_DOMAIN=""
+SMP_REGISTER_USERNAME=""
+SMP_REGISTER_PASSWORD=""
 
+OUTPUT=0
 #Input parameters
 POSITIONAL=()
 while [[ $# -gt 0 ]]
@@ -41,22 +42,36 @@ esac
 done
 set -- "${POSITIONAL[@]}" # restore positional parameter
 
-
+echo ""
 echo '[ SMP Commander ]'
 echo '---------------------------------------------------------------------------------'
 
-
-
 if [ "$HELP" == "1" ]; then
     #Show Help
-    echo ' ./Script.sh -g GATEWAY -c "my clish command"'
+    echo ' Example: ./smp-commander.sh -g GATEWAY -c "my clish command" -o'
+    echo ""
+    echo " -g | --gateway     Gateway Object Name."
+    echo " -c | --command     CLISH Command to Execute on Gateway."
+    echo " -o | --output      Save Command Output to Log File."
+    echo ""
     exit 1
 fi
 
 if [ "$SMP_REGISTER_GW_NAME" == "" ]; then
-    echo " Missing gateway object name! - Try again"
-    echo ' ./smp-commander.sh -g GATEWAY -c "my clish command"'
+    echo " Missing some parameters - You should get some help and try again"
+    echo ' Example: ./smp-commander.sh -g GATEWAY -c "my clish command" -o'
+    echo ""
+    echo " -g | --gateway     Gateway Object Name."
+    echo " -c | --command     CLISH Command to Execute on Gateway."
+    echo " -o | --output      Save Command Output to Log File."
+    echo ""
     exit 1
+fi
+
+if [ $OUTPUT == 1 ]; then
+    NOSPACES=$(echo "$COMMAND" | sed 's/ //g')
+    LOGDATE=$(date "+%F_%H-%M-%S")
+    OUTPUT_FILE="${SMP_REGISTER_DOMAIN}_${SMP_REGISTER_GW_NAME}_${NOSPACES}_${LOGDATE}.log"
 fi
 
 if [ "$COMMAND" == "" ]; then
@@ -67,15 +82,15 @@ if [ "$COMMAND" == "" ]; then
     SID=$(echo $LOGIN | jq .id -r)
 
     #Run Command
-    curl -f -s -k -H "Content-Type: application/json" -H "X-chkp-sid:${SID}" -X POST -d '{"gateway":{"name":"'"${SMP_REGISTER_GW_NAME}"'"}}' ${SMP_REGISTER_URL}/SMC/api/v1/show-gateway | jq .
-    exit 1
-fi
-
-if [ $OUTPUT == 1 ]; then
-    NOSPACES=$(echo "$COMMAND" | sed 's/ //g')
-    LOGDATE=$(date "+%F_%H-%M-%S")
-    OUTPUT_FILE="${SMP_REGISTER_DOMAIN}_${SMP_REGISTER_GW_NAME}_${NOSPACES}_${LOGDATE}.log"
+    SHOW_GATEWAY_OUTPUT=$(curl -f -s -k -H "Content-Type: application/json" -H "X-chkp-sid:${SID}" -X POST -d '{"gateway":{"name":"'"${SMP_REGISTER_GW_NAME}"'"}}' ${SMP_REGISTER_URL}/SMC/api/v1/show-gateway)
+    echo "$SHOW_GATEWAY_OUTPUT" | jq .
     
+    #Save command output to a file
+    if [ $OUTPUT == 1 ]; then
+        echo "$SHOW_GATEWAY_OUTPUT" | jq . > $OUTPUT_FILE
+    fi
+        
+    exit 1
 fi
 
 
